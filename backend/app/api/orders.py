@@ -14,6 +14,7 @@ from app.core.logging import get_logger
 from app.models.order import Order
 from app.schemas.order import OrderResponse, OrderCreate, OrderListResponse
 from app.services.log_service import LogService
+from app.services.monitoring_service import MonitoringService
 
 router = APIRouter(prefix="/api/orders", tags=["订单服务"])
 
@@ -88,6 +89,7 @@ async def get_user_orders(
 
     # 创建日志服务
     log_service = LogService(db)
+    monitoring_service = MonitoringService(db)
     logger = get_logger(service="order-service")
 
     # 故障注入：慢SQL（不创建索引，大量数据查询）
@@ -110,6 +112,12 @@ async def get_user_orders(
             trace_id=None
         )
 
+        # 采集数据库指标
+        monitoring_service.collect_database_metrics(
+            service="order-service",
+            query_time_ms=query_time_ms
+        )
+
         return OrderListResponse(total=total, orders=orders)
 
     # 正常查询
@@ -117,6 +125,12 @@ async def get_user_orders(
     orders = db.query(Order).filter(Order.user_id == user_id).offset(skip).limit(limit).all()
     total = db.query(Order).filter(Order.user_id == user_id).count()
     query_time_ms = (time.time() - start_time) * 1000
+
+    # 采集数据库指标
+    monitoring_service.collect_database_metrics(
+        service="order-service",
+        query_time_ms=query_time_ms
+    )
 
     # 如果查询时间超过阈值，也记录为慢SQL
     if query_time_ms > SLOW_SQL_THRESHOLD_MS:
