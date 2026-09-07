@@ -14,7 +14,7 @@ class LogBase(BaseModel):
     level: str
     message: str
     trace_id: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata_json: Optional[Dict[str, Any]] = None
 
 
 class LogCreate(LogBase):

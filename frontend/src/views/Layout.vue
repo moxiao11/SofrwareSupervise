@@ -28,7 +28,7 @@
       <!-- 顶部导航 -->
       <el-header class="header">
         <div class="header-left">
-          <breadcrumb />
+          <span style="font-size: 16px; color: #606266;">软件系统故障诊断与根因分析平台</span>
         </div>
         <div class="header-right">
           <el-badge :value="activeAlertCount" :hidden="activeAlertCount === 0" class="alert-badge">
@@ -65,9 +65,10 @@ import { alertApi } from '@/api'
 const route = useRoute()
 const activeAlertCount = ref(0)
 
-// 菜单路由
+// 菜单路由（过滤掉没有 meta 的路由）
 const menuRoutes = computed(() => {
-  return route.matched[0]?.children || []
+  const children = route.matched[0]?.children || []
+  return children.filter(r => r.meta && r.meta.title)
 })
 
 // 当前激活菜单

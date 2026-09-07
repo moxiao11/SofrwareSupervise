@@ -8,6 +8,7 @@ const routes = [
     children: [
       {
         path: '',
+        name: 'Root',
         redirect: '/dashboard'
       },
       {

@@ -6,5 +6,6 @@ from app.services.log_service import LogService
 from app.services.monitoring_service import MonitoringService
 from app.services.alert_engine import AlertRuleEngine
 from app.services.alert_service import AlertService
+from app.services.llm_service import LLMService, llm_service
 
-__all__ = ['LogService', 'MonitoringService', 'AlertRuleEngine', 'AlertService']
+__all__ = ['LogService', 'MonitoringService', 'AlertRuleEngine', 'AlertService', 'LLMService', 'llm_service']

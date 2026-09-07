@@ -20,3 +20,5 @@ app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
 app.mount('#app')
+
+console.log('✅ Vue 应用已挂载（完整版）')
