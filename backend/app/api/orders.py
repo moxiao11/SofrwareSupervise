@@ -10,8 +10,10 @@ from sqlalchemy import text
 from typing import List
 
 from app.core.database import get_db
+from app.core.logging import get_logger
 from app.models.order import Order
 from app.schemas.order import OrderResponse, OrderCreate, OrderListResponse
+from app.services.log_service import LogService
 
 router = APIRouter(prefix="/api/orders", tags=["订单服务"])
 
@@ -20,6 +22,9 @@ FAULT_MODE = os.getenv("FAULT_MODE", "false").lower() == "true"
 SLOW_SQL_ENABLED = False
 LATENCY_ENABLED = False
 ERROR_ENABLED = False
+
+# 慢SQL阈值（毫秒）
+SLOW_SQL_THRESHOLD_MS = 1000
 
 
 @router.get("/", response_model=OrderListResponse, summary="获取订单列表")
@@ -81,22 +86,50 @@ async def get_user_orders(
     if LATENCY_ENABLED:
         time.sleep(3)
 
+    # 创建日志服务
+    log_service = LogService(db)
+    logger = get_logger(service="order-service")
+
     # 故障注入：慢SQL（不创建索引，大量数据查询）
     if SLOW_SQL_ENABLED:
         # 执行全表扫描查询
         start_time = time.time()
         orders = db.query(Order).filter(Order.user_id == user_id).offset(skip).limit(limit).all()
         total = db.query(Order).filter(Order.user_id == user_id).count()
-        query_time = time.time() - start_time
+        query_time_ms = (time.time() - start_time) * 1000
 
-        # 记录慢SQL日志（后续会实现）
-        print(f"[SLOW SQL] user_id={user_id}, time={query_time:.3f}s")
+        # 记录慢SQL日志
+        sql = f"SELECT * FROM orders WHERE user_id = {user_id}"
+        logger.warning(f"Slow SQL detected: {query_time_ms:.2f}ms - {sql}")
+
+        # 保存到数据库日志
+        log_service.log_slow_sql(
+            service="order-service",
+            sql=sql,
+            duration_ms=query_time_ms,
+            trace_id=None
+        )
 
         return OrderListResponse(total=total, orders=orders)
 
     # 正常查询
+    start_time = time.time()
     orders = db.query(Order).filter(Order.user_id == user_id).offset(skip).limit(limit).all()
     total = db.query(Order).filter(Order.user_id == user_id).count()
+    query_time_ms = (time.time() - start_time) * 1000
+
+    # 如果查询时间超过阈值，也记录为慢SQL
+    if query_time_ms > SLOW_SQL_THRESHOLD_MS:
+        sql = f"SELECT * FROM orders WHERE user_id = {user_id}"
+        logger.warning(f"Slow SQL detected: {query_time_ms:.2f}ms - {sql}")
+        log_service.log_slow_sql(
+            service="order-service",
+            sql=sql,
+            duration_ms=query_time_ms,
+            trace_id=None
+        )
+    else:
+        logger.info(f"Query user {user_id} orders: {query_time_ms:.2f}ms")
 
     return OrderListResponse(total=total, orders=orders)
 

@@ -5,6 +5,7 @@ SmartOps Backend Application
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
+from app.core.middleware import RequestLoggingMiddleware
 from app.api import api_router
 
 # 创建数据库表
@@ -24,6 +25,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 请求日志中间件
+app.add_middleware(RequestLoggingMiddleware)
 
 # 注册API路由
 app.include_router(api_router)
