@@ -11,6 +11,7 @@ from decimal import Decimal
 from app.models.monitor_metric import MonitorMetric
 from app.schemas.monitor_metric import MetricCreate, MetricFilter
 from app.core.logging import get_logger
+from app.services.alert_service import AlertService
 
 
 class MonitoringService:
@@ -19,6 +20,7 @@ class MonitoringService:
     def __init__(self, db: Session):
         self.db = db
         self.logger = get_logger(service="monitoring-service")
+        self.alert_service = AlertService(db)
 
     def collect_system_metrics(self, service: str = "system"):
         """
@@ -85,6 +87,19 @@ class MonitoringService:
                 self.logger.warning(f"Failed to collect network metrics: {e}")
 
             self.logger.info(f"Collected system metrics for {service}")
+
+            # 异常检测：检查是否触发告警
+            metrics_dict = {
+                "cpu_usage": float(cpu_percent),
+                "memory_usage": float(memory.percent),
+                "disk_usage": float(disk.percent)
+            }
+            try:
+                alerts = self.alert_service.check_and_create_alerts(service, metrics_dict)
+                if alerts:
+                    self.logger.warning(f"Triggered {len(alerts)} alerts for {service}")
+            except Exception as e:
+                self.logger.error(f"Failed to check alerts: {e}")
 
         except Exception as e:
             self.logger.error(f"Failed to collect system metrics: {e}")
